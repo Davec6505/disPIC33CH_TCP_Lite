@@ -1,0 +1,1980 @@
+                             Serial Peripheral Interface (SPI)
+
+HIGHLIGHTS
+                       This section of the manual contains the following topics:
+
+
+                       1.0    Introduction ....................................................................................................................... 2
+                       2.0    SPI Registers .................................................................................................................... 5
+                       3.0    Modes of Operation ........................................................................................................ 12
+                       4.0    Master Mode Clock Frequency ....................................................................................... 32
+                       5.0    SPI Operation with DMA ................................................................................................. 33
+                       6.0    SPI Operation in Power-Saving Modes .......................................................................... 36
+                       7.0    Register Map................................................................................................................... 37
+                       8.0    Related Application Notes............................................................................................... 38
+                       9.0    Revision History .............................................................................................................. 39
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                                                     DS70005185A-page 1
+dsPIC33/PIC24 Family Reference Manual
+
+                       Note:     This family reference manual section is meant to serve as a complement to device
+                                 data sheets. Depending on the device variant, this manual section may not apply to
+                                 all dsPIC33/PIC24 devices.
+                                 Please consult the note at the beginning of the “Serial Peripheral Interface
+                                 (SPI)” chapter in the current device data sheet to check whether this document
+                                 supports the device you are using.
+                                 Device data sheets and family reference manual sections are available for
+                                 download from the Microchip Worldwide Web site at: http://www.microchip.com.
+
+
+                     This document supersedes the following dsPIC33/PIC24 Family Reference Manual sections:
+
+                     DS Number Section Number                                         Title
+                       DS70569              18          Serial Peripheral Interface (SPI): dsPIC33E/PIC24E Family
+                                                        Reference Manual
+                       DS39699              23          Serial Peripheral Interface (SPI): PIC24F Family Reference
+                                                        Manual
+                       DS70206              18          Serial Peripheral Interface (SPI): dsPIC33F/PIC24H Family
+                                                        Reference Manual
+                       DS70243              18          Serial Peripheral Interface (SPI): PIC24H Family Reference
+                                                        Manual
+
+
+1.0     INTRODUCTION
+                     The Serial Peripheral Interface (SPI) module is a synchronous serial interface useful for
+                     communicating with other peripheral or microcontroller devices. These peripheral devices can be
+                     serial EEPROMs, Shift registers, display drivers, Analog-to-Digital Converters and so on. The
+                     SPI module is compatible with Motorola® SPI and Serial Input/Output Port (SIOP) interfaces.
+                     Depending on the device variant, the dsPIC33/PIC24 device families offer multiple SPI modules on
+                     a single device. These modules, which are designated as SPI1, SPI2 and so on, are functionally
+                     identical. Each SPI module includes an eight-word FIFO buffer and allows DMA bus connections.
+                     When using the SPI module with DMA, the FIFO operation can be disabled.
+                        Note 1: The SPI modules are referred to together as SPIx. The Special Function Registers
+                                (SFRs) follow a similar notation. For example, the SPIxCON refers to the control
+                                register of the SPIx module.
+                               2: On some devices, at least one SPIx module uses dedicated pins, while others take
+                                  advantage of the Peripheral Pin Select (PPS) feature to allow for greater flexibility.
+                                  Refer to the “Serial Peripheral Interface (SPI)” chapter of the specific device data
+                                  sheet to determine whether this feature is available on your device.
+                     The SPIx serial interface consists of the following four pins:
+                     • SDIx: Serial Data Input
+                     • SDOx: Serial Data Output
+                     • SCKx: Shift Clock Input or Output
+                     • SSx/FSYNCx: Active-Low Slave Select or Frame Synchronization I/O Pulse
+                     The SPIx module can be configured to operate with two, three or four pins. In 2-pin mode, neither
+                     the SDOx nor the SSx pin is used. In 3-pin mode, the SSx pin is not used.
+                     Figure 1-1 and Figure 1-2 show the block diagrams of the SPIx module in Standard and
+                     Enhanced mode.
+
+
+
+
+DS70005185A-page 2                                                                        2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+Figure 1-1:       SPIx Module Block Diagram – Standard Mode
+
+       SCKx                                                                    1:1 to 1:8     1:1/4/16/64
+                                                                               Secondary        Primary      FP
+                                                                               Prescaler       Prescaler
+   SSx/FSYNCx
+                     Sync                  Control             Select
+                    Control                 Clock              Edge                                          SPIxCON1<1:0>
+                                               Shift Control
+                                                                                                             SPIxCON1<4:2>
+       SDOx
+                                                                                                             Enable
+       SDIx                        bit 0                                                                     Master Clock
+                                           SPIxSR
+
+
+                      Transfer                            Transfer
+
+
+
+                                 SPIxRXB       SPIxTXB
+
+
+
+
+                                           SPIxBUF
+
+
+               Read SPIxBUF                               Write SPIxBUF
+                                                                          16
+                                                                                 Internal Data Bus
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                            DS70005185A-page 3
+dsPIC33/PIC24 Family Reference Manual
+Figure 1-2:      SPIx Module Block Diagram – Enhanced Mode
+
+     SCKx                                                                    1:1 to 1:8      1:1/4/16/64
+                                                                             Secondary         Primary     FP
+                                                                             Prescaler        Prescaler
+  SSx/FSYNCx
+                   Sync                 Control             Select
+                  Control                Clock              Edge                                           SPIxCON1<1:0>
+
+                                            Shift Control                                                  SPIxCON1<4:2>
+     SDOx
+                                                                                                           Enable
+      SDIx                      bit 0                                                                      Master Clock
+                                        SPIxSR
+
+
+                     Transfer                           Transfer
+
+
+
+                       8-Level FIFO            8-Level FIFO
+                       Receive Buffer         Transmit Buffer
+
+
+
+                                        SPIxBUF
+
+
+              Read SPIxBUF                              Write SPIxBUF
+
+                                                                        16
+                                                                               Internal Data Bus
+
+
+
+
+DS70005185A-page 4                                                                             2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+2.0      SPI REGISTERS
+                       This section outlines the specific functions of each register that controls the operation of the
+                       SPIx module.
+                       • SPIxSTAT: SPIx Status and Control Register
+                         - Indicates the various status conditions, such as receive overflow, transmit buffer full
+                           and receive buffer full
+                         - Specifies the operation of the SPIx module during Idle mode
+                         - Contains a bit that can enable or disable the SPIx module
+                       • SPIxCON1: SPIx Control Register 1
+                         - Specifies the clock prescaler, Master/Slave mode, Word/Byte communication, clock
+                           polarity and clock/data pin operation
+                       • SPIxCON2: SPIx Control Register 2
+                         - Enables or disables the Enhanced Buffer and Framed SPI mode operation
+                         - Specifies the frame synchronization pulse direction, polarity and edge selection
+                       • SPIxBUF: SPIx Data Receive/Transmit Buffer Register
+                         - In Standard mode, the register consists of two separate internal registers: the SPIx
+                           Transmit Buffer (SPIxTXB) register and the SPIx Receive Buffer (SPIxRXB) register
+                         - The SPIxTXB and the SPIxRXB are unidirectional, 16-bit registers that share the SFR
+                           address of the SPIxBUF register. If the user application writes data to be transmitted to
+                           the SPIxBUF register, internally the data is written to the SPIxTXB register. Similarly,
+                           when the user application reads the received data from the SPIxBUF register,
+                           internally the data is read from the SPIxRXB register.
+                         - When the enhanced buffer is enabled, the SPIxBUF register becomes the data inter-
+                           face to two 8-level FIFOs: one for reception and another for transmission. Each buffer
+                           can hold up to eight pending data transfers. When the CPU writes data to the SPIxBUF
+                           register, the data is moved into the next transmit buffer location. The SPIx peripheral
+                           begins to transfer data after the first CPU writes to the SPIxBUF register and continues
+                           until all pending transfers are completed. After each transfer, the SPIx updates the
+                           next receive buffer location with the received data and is available for the CPU to read.
+                           After the CPU read, the data is read from the next receive buffer location.
+                         - The double-buffer transmit/receive operation allows continuous data transfer in the
+                           background; the transmission and reception occur simultaneously.
+                         - In addition, there is an internal 16-bit SPIx Shift register (SPIxSR) that is not
+                           memory-mapped; it shifts data in and out of the SPI port.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                    DS70005185A-page 5
+dsPIC33/PIC24 Family Reference Manual
+
+Register 2-1:      SPIxSTAT: SPIx Status and Control Register
+
+   R/W-0           U-0          R/W-0             U-0             U-0               R/W-0             R/W-0             R/W-0
+                                                                                            (1)               (1)
+   SPIEN            —          SPISIDL            —                —           SPIBEC2              SPIBEC1         SPIBEC0(1)
+bit 15                                                                                                                      bit 8
+
+
+   R/W-0        R/C-0, HS       R/W-0           R/W-0            R/W-0              R/W-0          R-0, HS, HC      R-0, HS, HC
+  SRMPT          SPIROV       SRXMPT           SISEL2(1)       SISEL1(1)        SISEL0(1)             SPITBF           SPIRBF
+bit 7                                                                                                                       bit 0
+
+
+Legend:                     HC = Hardware Clearable bit      U = Unimplemented bit, read as ‘0’
+R = Readable bit            W = Writable bit                 HS = Hardware Settable bit            C = Clearable bit
+-n = Value at POR           ‘1’ = Bit is set                 ‘0’ = Bit is cleared                  x = Bit is unknown
+
+
+bit 15          SPIEN: SPIx Enable bit
+                1 = SPIx module is enabled and configures the SCKx, SDOx, SDIx and SSx pins as serial port pins
+                0 = SPIx module is disabled
+bit 14          Unimplemented: Read as ‘0’
+bit 13          SPISIDL: SPIx Stop in Idle Mode bit
+                1 = SPIx module operation is discontinued when the device enters Idle mode
+                0 = SPIx module operation is continued in Idle mode
+bit 12-11       Unimplemented: Read as ‘0’
+bit 10-8        SPIBEC<2:0>: SPIx Buffer Element Count bits (valid in Enhanced Buffer mode)(1)
+                Master mode:
+                Number of SPIx transfers are pending.
+                Slave mode:
+                Number of SPIx transfers are unread.
+bit 7           SRMPT: SPIx Shift Register (SPIxSR) Empty bit (valid in Enhanced Buffer mode)
+                1 = The SPIx Shift register is empty and ready to send or receive data
+                0 = The SPIx Shift register is not empty
+bit 6           SPIROV: Receive Overflow Flag bit
+                1 = A new word/byte is completely received and discarded; the user application has not read the
+                    previous data in the SPIxBUF register
+                0 = No overflow has occurred
+bit 5           SRXMPT: SPIx Receive FIFO Empty bit (valid in Enhanced Buffer mode)
+                1 = RX FIFO is empty
+                0 = RX FIFO is not empty
+bit 4-2         SISEL<2:0>: SPIx Buffer Interrupt Mode bits (valid in Enhanced Buffer mode)(1)
+                111 = Interrupt when the SPIx transmit buffer is full (the SPITBF bit is set)
+                110 = Interrupt when the last bit is shifted into SPIxSR, and as a result, the TX FIFO is empty
+                101 = Interrupt when the last bit is shifted out of SPIxSR and the transmit is complete
+                100 = Interrupt when one data is shifted into the SPIxSR, and as a result, the TX FIFO has one open
+                      memory location
+                011 = Interrupt when the SPIx receive buffer is full (the SPIRBF bit set)
+                010 = Interrupt when the SPIx receive buffer is three-fourth or more full
+                001 = Interrupt when the data bit is received in the receive buffer (the SRMPT bit is set)
+                000 = Interrupt when the last data bit in the receive buffer is read, and as a result, the buffer is empty
+                      (the SRXMPT bit is set)
+
+Note 1:     These bits are not implemented on the dsPIC33/PIC24 devices as they do not support the
+            Enhanced Buffer mode.
+
+
+
+
+DS70005185A-page 6                                                                                 2014 Microchip Technology Inc.
+                        Serial Peripheral Interface (SPI) Module
+Register 2-1:       SPIxSTAT: SPIx Status and Control Register (Continued)
+
+bit 1           SPITBF: SPIx Transmit Buffer Full Status bit
+                1 = Transmit has not yet started, SPIxTXB buffer is full
+                0 = Transmit has started, SPIxTXB buffer is empty
+                Standard Buffer mode:
+                Automatically set in hardware when the core writes to the SPIxBUF location, loading the SPIxTXB.
+                Automatically cleared in hardware when the SPIx module transfers data from the SPIxTXB to SPIxSR.
+                Enhanced Buffer mode:
+                Automatically set in hardware when the CPU writes to the SPIxBUF location, loading the last available
+                buffer location. Automatically cleared in hardware when a buffer location is available for a CPU write
+                operation.
+bit 0           SPIRBF: SPIx Receive Buffer Full Status bit
+                1 = Receive complete, SPIxRXB is full
+                0 = Receive is incomplete, SPIxRXB is empty
+                Standard Buffer mode:
+                Automatically set in the hardware when the SPIx transfers data from the SPIxSR to SPIxRXB. Automatically
+                cleared in the hardware when the core reads the SPIxBUF location, reading SPIxRXB.
+                Enhanced Buffer mode:
+                Automatically set in hardware when the SPIx transfers data from the SPIxSR to the buffer, filling the last
+                unread buffer location. Automatically cleared in hardware when a buffer location is available for a transfer
+                from SPIxSR.
+
+Note 1:     These bits are not implemented on the dsPIC33/PIC24 devices as they do not support the
+            Enhanced Buffer mode.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                       DS70005185A-page 7
+dsPIC33/PIC24 Family Reference Manual
+
+Register 2-2:       SPIXCON1: SPIx Control Register 1
+
+        U-0             U-0             U-0            R/W-0            R/W-0               R/W-0        R/W-0           R/W-0
+                                                               (5)                                             (2)
+         —              —                —            DISSCK           DISSDO          MODE16            SMP            CKE(1)
+bit 15                                                                                                                        bit 8
+
+
+    R/W-0             R/W-0            R/W-0           R/W-0            R/W-0               R/W-0        R/W-0           R/W-0
+   SSEN(4)             CKP            MSTEN           SPRE2(3)        SPRE1(3)         SPRE0(3)         PPRE1(3)       PPRE0(3)
+bit 7                                                                                                                         bit 0
+
+
+Legend:
+R = Readable bit                   W = Writable bit                  U = Unimplemented bit, read as ‘0’
+-n = Value at POR                  ‘1’ = Bit is set                  ‘0’ = Bit is cleared             x = Bit is unknown
+
+
+bit 15-13          Unimplemented: Read as ‘0’
+bit 12             DISSCK: Disable SCKx Pin bit (SPI Master modes only)(5)
+                   1 = SPIx clock on SCKx pin is disabled; pin functions as I/O
+                   0 = SPIx clock on SCKx pin is enabled
+bit 11             DISSDO: Disable SDOx Pin bit
+                   1 = SDOx pin is not used by the module; pin functions as I/O
+                   0 = SDOx pin is controlled by the module
+bit 10             MODE16: Word/Byte Communication Select bit
+                   1 = Communication is word-wide (16 bits)
+                   0 = Communication is byte-wide (8 bits)
+bit 9              SMP: SPIx Data Input Sample Phase bit(2)
+                   Master mode:
+                   1 = Input data is sampled at the end of data output time
+                   0 = Input data is sampled at the middle of data output time
+                   Slave mode:
+                   The SMP bit must be cleared when the SPIx module is used in Slave mode.
+bit 8              CKE: SPIx Clock Edge Select bit(1)
+                   1 = Serial output data changes on transition from active clock state to Idle clock state (see bit 6)
+                   0 = Serial output data changes on transition from Idle clock state to active clock state (see bit 6)
+bit 7              SSEN: Slave Select Enable bit (Slave mode)(4)
+                   1 = SSx pin is used for Slave mode
+                   0 = SSx pin is not used by the module; pin is controlled by port function
+bit 6              CKP: Clock Polarity Select bit
+                   1 = Idle state for clock is a high level; active state is a low level
+                   0 = Idle state for clock is a low level; active state is a high level
+bit 5              MSTEN: Master Mode Enable bit
+                   1 = Master mode
+                   0 = Slave mode
+
+Note 1:       The CKE bit is not used in Framed SPI modes. Program this bit to ‘0’ for Framed SPI modes (FRMEN = 1).
+     2:       The SMP bit must be set only after setting the MSTEN bit. The SMP bit remains clear if MSTEN = 0.
+     3:       Do not set the primary and secondary prescalers to the value of 1:1 at the same time.
+     4:       This bit must be cleared when FRMEN = 1.
+     5:       If DISSCK = 1, the SCKx pin becomes a regular I/O and can be controlled using the TRISx and LATx reg-
+              isters, but internally, the SCKx clock may not be disconnected from the receiving part of the SPIx module
+              and the data will still be captured from the SDIx pin. To avoid an overflow error, the application may need
+              to read the SPIx buffer after the transmission.
+
+
+
+
+DS70005185A-page 8                                                                                   2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+Register 2-2:     SPIXCON1: SPIx Control Register 1 (Continued)
+
+bit 4-2          SPRE<2:0>: Secondary Prescale bits (Master mode)(3)
+                 111 = Secondary prescale 1:1
+                 110 = Secondary prescale 2:1
+                 •
+                 •
+                 •
+                 000 = Secondary prescale 8:1
+bit 1-0          PPRE<1:0>: Primary Prescale bits (Master mode)(3)
+                 11 = Primary prescale 1:1
+                 10 = Primary prescale 4:1
+                 01 = Primary prescale 16:1
+                 00 = Primary prescale 64:1
+
+Note 1:     The CKE bit is not used in Framed SPI modes. Program this bit to ‘0’ for Framed SPI modes (FRMEN = 1).
+     2:     The SMP bit must be set only after setting the MSTEN bit. The SMP bit remains clear if MSTEN = 0.
+     3:     Do not set the primary and secondary prescalers to the value of 1:1 at the same time.
+     4:     This bit must be cleared when FRMEN = 1.
+     5:     If DISSCK = 1, the SCKx pin becomes a regular I/O and can be controlled using the TRISx and LATx reg-
+            isters, but internally, the SCKx clock may not be disconnected from the receiving part of the SPIx module
+            and the data will still be captured from the SDIx pin. To avoid an overflow error, the application may need
+            to read the SPIx buffer after the transmission.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                   DS70005185A-page 9
+dsPIC33/PIC24 Family Reference Manual
+
+Register 2-3:       SPIxCON2: SPIx Control Register 2
+
+    R/W-0            R/W-0        R/W-0           U-0            U-0              U-0          U-0             U-0
+   FRMEN            SPIFSD       FRMPOL/          —              —                —             —              —
+                                SPIFPOL(2)
+bit 15                                                                                                               bit 8
+
+
+        U-0           U-0           U-0           U-0            U-0              U-0        R/W-0           R/W-0
+         —            —              —            —              —                —         FRMDLY/       SPIBEN(1)
+                                                                                            SPIFE(2)
+bit 7                                                                                                                bit 0
+
+
+Legend:
+R = Readable bit               W = Writable bit            U = Unimplemented bit, read as ‘0’
+-n = Value at POR              ‘1’ = Bit is set            ‘0’ = Bit is cleared           x = Bit is unknown
+
+
+bit 15           FRMEN: Framed SPIx Support bit
+                 1 = Framed SPIx support is enabled (the SSx pin is used as a frame sync pulse input/output)
+                 0 = Framed SPIx support is disabled
+bit 14           SPIFSD: SPIx Frame Sync Pulse Direction Control bit
+                 1 = Frame sync pulse input (slave)
+                 0 = Frame sync pulse output (master)
+bit 13           FRMPOL/SPIFPOL: SPIx Frame Sync Pulse Polarity bit(2)
+                 1 = Frame sync pulse is active-high
+                 0 = Frame sync pulse is active-low
+bit 12-2         Unimplemented: Read as ‘0’
+bit 1            FRMDLY/SPIFE: SPIx Frame Sync Pulse Edge Select bit(2)
+                 1 = Frame sync pulse coincides with the first bit clock
+                 0 = Frame sync pulse precedes the first bit clock
+bit 0            SPIBEN: SPIx Enhanced Buffer Enable bit(1)
+                 1 = Enhanced buffer is enabled
+                 0 = Enhanced buffer is disabled (Legacy mode)
+
+Note 1:       These bits are unimplemented on the dsPIC33F/PIC24H devices as they do not support the
+              Enhanced Buffer mode.
+         2:   The SPIFPOL and SPIFE bit names are used for PIC24F devices.
+
+
+
+
+DS70005185A-page 10                                                                      2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+
+Register 2-4:      SPIxBUF: SPIx Data Receive/Transmit Buffer Register
+
+    R/W-0           R/W-0              R/W-0          R/W-0       R/W-0               R/W-0      R/W-0         R/W-0
+                                          SPIx Transmit and Receive Buffer Register
+bit 15                                                                                                             bit 8
+
+
+    R/W-0           R/W-0              R/W-0          R/W-0       R/W-0               R/W-0      R/W-0         R/W-0
+                                          SPIx Transmit and Receive Buffer Register
+bit 7                                                                                                              bit 0
+
+
+Legend:
+R = Readable bit                   W = Writable bit            U = Unimplemented bit, read as ‘0’
+-n = Value at POR                  ‘1’ = Bit is set            ‘0’ = Bit is cleared           x = Bit is unknown
+
+
+bit 15-0         SPIx Transmit/Receive Buffer bits
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                    DS70005185A-page 11
+dsPIC33/PIC24 Family Reference Manual
+3.0     MODES OF OPERATION
+                      The SPIx module consists of the following operating attributes, which are discussed in the
+                      following sections:
+                      • Configuring the Port Pins
+                      • 8-Bit and 16-Bit Data Transmission/Reception
+                      • Master and Slave Modes
+                      • Enhanced Buffer Master and Slave Modes
+                      • Framed SPI Modes
+                      • SPIx Receive Only Operation
+                      • SPIx Error Handling
+
+                         Note 1: In Framed SPI mode, the SDIx, SDOx, SCKx and SSx pins are used
+                              2: If the slave select feature is used, then all four pins are used.
+                              3: If the standard SPI mode is used, but CKE = 1, then enabling or using the slave
+                                 select feature is mandatory, and therefore, all four pins are used.
+                              4: If the standard SPI mode is used, but DISSDO = 1, then only the SDIx and SCKx
+                                 pins (unless slave select is also enabled) are used.
+                              5: In all other cases, the SDIx, SDOx and SCKx pins are used.
+
+                      3.1      Configuring the Port Pins
+                      The SPIx module inputs must be configured as digital pins by setting the corresponding bits in
+                      the ADxPCFG registers, or by clearing the bits in the ANSELx or ANSx registers with respect to
+                      a particular device. If the device has a Peripheral Pin Select (PPS) feature, the SCKx pin must
+                      be mapped as both input and output in Master mode.
+
+                      3.2      8-Bit and 16-Bit Data Transmission/Reception
+                      The Word/Byte Mode Communication Select bit (MODE16) in SPIx Control Register 1
+                      (SPIxCON1<10>) allows the module to communicate in either 8-bit or 16-bit mode. The
+                      functionality is the same for each mode, except for the number of bits that are received and
+                      transmitted. In this context, read the following:
+                      • The module is reset when the value of the MODE16-bit is changed. Consequently, the bit
+                        must not be changed during normal operation.
+                      • Data is transmitted out of bit 7 of the SPIx Shift register (SPIxSR<7>) for 8-bit operation,
+                        while it is transmitted out of bit 15 (SPIxSR<15>) for 16-bit operation. In both modes, data
+                        is shifted into bit 0 (SPIxSR<0>).
+                      • In 8-bit mode, eight clock pulses are required at the SCKx pin to shift data in and out when
+                        transmitting or receiving data. In 16-bit mode, 16 clock pulses are required at the SCKx pin.
+
+                      3.3      Master and Slave Modes
+                      Data can be thought of as taking a direct path between the Most Significant bit (MSb) of one
+                      module’s Shift register and the Least Significant bit (LSb) of the other, and then into the
+                      appropriate transmit or receive buffer. A module configured as the master module provides the
+                      serial clock and synchronization signals to the slave device. Figure 3-1 shows the connection
+                      between the master and slave modules.
+
+
+
+
+DS70005185A-page 12                                                                      2014 Microchip Technology Inc.
+                          Serial Peripheral Interface (SPI) Module
+Figure 3-1:           SPIx Master/Slave Connection
+
+
+               PROCESSOR 1 (SPIx Master)                                             PROCESSOR 2 (SPIx Slave)
+
+
+                                                   SDOx                     SDIx
+
+
+                       Serial Receive Buffer                                          Serial Receive Buffer
+                            (SPIxRXB)                                                      (SPIxRXB)
+
+
+
+
+                            Shift Register         SDIx                     SDOx           Shift Register
+                             (SPIxSR)                                                       (SPIxSR)
+                      MSb                    LSb                                     MSb                    LSb
+
+
+                       Serial Transmit Buffer                                        Serial Transmit Buffer
+                             (SPIxTXB)                                                    (SPIxTXB)
+
+
+                                                          Serial Clock
+                             SPIx Buffer           SCKx                     SCKx           SPIx Buffer
+                           (SPIxBUF)(2,3)                                                (SPIxBUF)(2,3)
+
+                                                    SSx                     SSx(1)
+
+                   MSTEN (SPIxCON1<5>) = 1                           SSEN (SPIxCON1<7>) = 1 and MSTEN (SPIxCON1<5>) = 0
+
+
+
+     Note 1:        The use of the SSx pin in Slave mode is optional.
+          2:        The user application must write transmit data to read received data from the SPIxBUF register. The
+                    SPIxTXB and SPIxRXB registers are memory-mapped to the SPIxBUF register.
+              3:    If the user application does not change the data in the SPIxBUF register, every new transmission shifts the
+                    SPIxBUF register value instead of shifting the value received in the Shift register.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                                  DS70005185A-page 13
+dsPIC33/PIC24 Family Reference Manual
+                      3.3.1        MASTER MODE
+                      In Master mode, the system clock is prescaled and then used as the serial clock. The prescaling is
+                      based on the settings in the Primary Prescale bits (PPRE<1:0>) and the Secondary Prescale bits
+                      (SPRE<2:0>) in the SPIxCON1 register. The serial clock is output through the SCKx pin to slave
+                      devices. The clock pulses are generated only when there is data to be transmitted (see Section 4.0
+                      “Master Mode Clock Frequency”). The SPIx Clock Polarity Select bit, CKP (SPIxCON1<6>), and
+                      the SPIx Clock Edge Select bit, CKE (SPIxCON1<8>), determine the edge of the clock pulse on
+                      which data transmission occurs. Both data to be transmitted and data received are, respectively,
+                      written into or read from the SPIxBUF register.
+                      The SPIx module operation in Master mode is as described:
+                      1.    Once the module is set up in Master mode and enabled to operate, data to be transmitted
+                            is written into the SPIxBUF register. The SPIx Transmit Buffer Full Status bit (SPITBF) in
+                            the SPIx Status and Control register (SPIxSTAT<1>) is set.
+                      2.    The content of the SPIx Transmit Buffer register (SPIxTXB) is moved to the SPIxSR
+                            register and the SPITBF bit (SPIxSTAT<1>) is cleared by the module.
+                      3.    A series of 8/16 clock pulses shift out 8/16 bits of transmit data from the SPIxSR register
+                            to the SDOx pin, and simultaneously, shift the data at the SDIx pin into the SPIxSR
+                            register.
+                      4.    When the transfer is complete, the following events occur in the interrupt controller:
+                            a) The appropriate interrupt flag bit is set in the interrupt controller:
+                                  • The SPIxIF bit is set in the Interrupt Flag Status register x (IFSx)
+                                  • The SPIxIF flags are not cleared automatically by the hardware
+                            b) When the ongoing transmit and receive operations are completed, the content of the
+                                  SPIxSR register is moved to the SPIx Receive Buffer (SPIxRXB) register.
+                            c) The SPIx Receive Buffer Full Status bit, SPIRBF (SPIxSTAT<0>), is set by the
+                                  module, indicating that the receive buffer is full. Once the SPIxBUF register is read
+                                  by the user application, the hardware clears the SPIRBF bit.
+                      5.    If the SPIRBF bit (SPIxSTAT<0>) is set (receive buffer is full) when the SPIx module needs
+                            to transfer data from the SPIxSR register to the SPIxRXB register, the module sets the
+                            SPIx Receive Overflow Flag bit (SPIROV) in the SPIxSTAT register (SPIxSTAT<6>),
+                            indicating an overflow condition.
+                      6.    Data to be transmitted can be written to the SPIxBUF register by the user application at
+                            any time as long as the SPITBF bit (SPIxSTAT<1>) is clear. The write can occur while the
+                            SPIxSR register is transferring the previously written data, allowing continuous
+                            transmission.
+                           Note 1: For devices with the PPS feature, when the SPIx module is configured as a Master,
+                                   the SCKx pin must be mapped as both input and output.
+                                2: The user application cannot write directly into the SPIxSR register. All writes to the
+                                   SPIxSR register are performed through the SPIxBUF register.
+                                3: In Master mode, the SPIx module does not control the SSx pin. This pin should be
+                                   configured as a General Purpose I/O (GPIO) by clearing the SSEN bit
+                                   (SPIxCON1<7>) = 0.
+
+
+
+
+DS70005185A-page 14                                                                        2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.3.1.1       Master Mode Setup Procedure
+                       The following procedure is used to set up the SPIx module for Master mode of operation:
+                       1.   If using interrupts, configure the interrupt controller:
+                            a) Clear the SPIx Interrupt Flag Status bit (SPIxIF) in the respective Interrupt Flag Status
+                                  (IFSx) register in the interrupt controller.
+                            b) Set the SPIx Interrupt Enable bit (SPIxIE) in the respective Interrupt Enable Control
+                                  (IECx) register in the interrupt controller.
+                            c) Write to the SPIx Interrupt Priority bits (SPIxIP) in the respective Interrupt Priority
+                                  Control (IPCx) register to set the interrupt priority.
+                       2.   Set the SPIx Master Mode Enable bit (MSTEN) in the SPIxCON1 register (SPIxCON1<5> = 1).
+                       3.   Clear the SPIx Receive Overflow Flag bit (SPIROV) in the SPIxSTAT register
+                            (SPIxSTAT<6> = 0).
+                       4.   Enable the SPIx operation by setting the SPIx Enable bit (SPIEN) in the SPIxSTAT register
+                            (SPIxSTAT<15> = 1).
+                       5.   Write the data to be transmitted to the SPIxBUF register. The transmission (and reception)
+                            starts as soon as data is written to the SPIxBUF register.
+                       Example 3-1 provides the code sequence to show the SPIx register configuration for Master mode
+                       (the SPI1 module is used in the example).
+
+Example 3-1:      SPI1 Register Configuration – Master Mode
+ /* The following code sequence shows SPI register configuration for Master mode */
+
+ IFS0bits.SPI1IF = 0;                      // Clear the Interrupt flag
+ IEC0bits.SPI1IE = 0;                      // Disable the interrupt
+
+ // SPI1CON1 Register Settings
+
+ SPI1CON1bits.DISSCK = 0;                  // Internal serial clock is enabled
+ SPI1CON1bits.DISSDO = 0;                  // SDOx pin is controlled by the module
+ SPI1CON1bits.MODE16 = 1;                  // Communication is word-wide (16 bits)
+ SPI1CON1bits.MSTEN = 1;                   // Master mode enabled
+ SPI1CON1bits.SMP = 0;                     // Input data is sampled at the middle of data output time
+ SPI1CON1bits.CKE = 0;                     // Serial output data changes on transition from
+                                           // Idle clock state to active clock state
+ SPI1CON1bits.CKP = 0;                     // Idle state for clock is a low level;
+                                           // active state is a high level
+ SPI1STATbits.SPIEN = 1;                   // Enable SPI module
+
+ // Interrupt Controller Settings
+
+ IFS0bits.SPI1IF = 0;                      // Clear the Interrupt flag
+ IEC0bits.SPI1IE = 1;                      // Enable the interrupt
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                    DS70005185A-page 15
+dsPIC33/PIC24 Family Reference Manual
+Figure 3-2:         SPIx Master Mode Timing
+
+         User Writes            SPIxTXB to SPIxSR(3)                               User Writes New Data
+         to SPIxBUF                                                                during Transmission
+
+         SPITBF
+
+         SCKx
+      (CKP = 0,
+     CKE = 0)(1)
+
+                                                                                                                        Four Clock
+         SCKx                                                                                                           modes
+      (CKP = 1,                                                                                                         (clock
+     CKE = 0)(1)                                                                                                        output at
+         SCKx                                                                                                           the SCKx
+      (CKP = 0,                                                                                                         pin in
+     CKE = 1)(1)                                                                                                        Master
+                                                                                                                        mode)
+         SCKx
+      (CKP = 1,
+     CKE = 1)(1)
+
+          SDOx
+       (CKE = 0)              bit 7         bit 6   bit 5     bit 4     bit 3      bit 2      bit 1        bit 0
+
+
+
+          SDOx
+                              bit 7         bit 6   bit 5     bit 4     bit 3      bit 2      bit 1       bit 0
+       (CKE = 1)
+
+
+           SDIx
+     (SMP = 0)(2)
+                            bit 7                                                                       bit 0
+
+    Input Sample
+                                                                                                                        Two modes
+     (SMP = 0)(2)
+                                                                                                                        available
+                                                                                                                        for SMP
+           SDIx                                                                                                         Control
+     (SMP = 1)(2)                                                                                                       bit(4)
+                                    bit 7                                                                       bit 0
+
+    Input Sample
+     (SMP = 1)(2)
+
+
+          SPIxIF
+                                                                         One Instruction Cycle Latency
+                                                                         to Set the SPIxIF Flag bit
+
+                                                                                            SPIxSR Moved
+                                                                                            into SPIxRXB
+
+        SPIRBF
+  (SPIxSTAT<0>)
+                                       User Reads
+                                       SPIxBUF
+
+
+  Note 1:     Four SPIx Clock modes are shown only to demonstrate the CKP (SPIxCON1<6>) and CKE (SPIxCON1<8>) bits’
+              functionality. Only one of the four modes can be chosen for the operation.
+         2:   The SDIx pin and the input sample are shown for two different values of the SMP bit (SPIxCON1<9>) only for
+              demonstration. Only one of the two configurations of the SMP bit can be chosen during the operation.
+         3:   If there are no pending transmissions, the data in the SPIxTXB register is transferred to the SPIxSR register as
+              soon as the user application writes to the SPIxBUF register.
+         4:   Operation for 8-bit mode is shown. The operation for 16-bit mode is similar to 8-bit, except for the number of clock
+              pulses.
+
+
+
+
+DS70005185A-page 16                                                                                    2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.3.2        SLAVE MODE
+                       In Slave mode, the data is transmitted and received as the external clock pulses appear on the
+                       SCKx pin. The CKP bit (SPIxCON<6>) and the CKE bit (SPIxCON<8>) determine the edge of
+                       the clock pulse when the data transmission occurs. Data to be transmitted and data that is
+                       received are written into or read from the SPIxBUF register. The remaining module operation is
+                       identical to that of Master mode.
+                            Note 1: In Slave mode, the SPIx clock frequency on the SCKx pin must be lower than the
+                                    device system frequency (FSCK < FCY).
+                                 2: In Slave mode, if no data is written to the SPIxBUF register when the SPIx master
+                                    initiates a read operation, SPI mode will transmit the last data that was written into
+                                    the SPIxBUF register.
+
+                       3.3.2.1        Slave Mode Setup Procedure
+                       The following procedure is used to set up the SPIx module for the Slave mode of operation:
+                       1.    Clear the SPIxBUF register.
+                       2.    If using interrupts, configure the interrupt controller:
+                             a) Clear the SPIx Interrupt Flag Status bit (SPIxIF) in the respective IFSx register.
+                             b) Set the SPIx Interrupt Enable Control bit (SPIxIE) in the respective IECx register.
+                             c) Write the SPIx Interrupt Priority Control (SPIxIP) bits in the respective IPCx register
+                                   to set the interrupt priority.
+                       3.    Configure the SPIxCON1 register:
+                             a) Clear the Master Mode Enable (MSTEN) bit (SPIxCON1<5> = 0).
+                             b) Clear the Data Input Sample Phase (SMP) bit (SPIxCON1<9> = 0).
+                             c) If the Clock Edge Select (CKE) bit is set, set the Slave Select Enable (SSEN) bit to
+                                   enable the SSx pin (SPIxCON1<7> = 1).
+                       4.    Configure the SPIxSTAT register:
+                             a) Clear the Receive Overflow Flag (SPIROV) bit (SPIxSTAT<6> = 0).
+                             b) Set the SPIx Enable (SPIEN) bit (SPIxSTAT<15> = 1) to enable SPIx operation.
+                       Example 3-2 provides the code sequence to show the SPIx register configuration for Slave mode
+                       (the SPI1 module is used in the example).
+
+                       Example 3-2:        SPI1 Register Configuration – Slave Mode
+                         /* The following code sequence shows SPI register configuration for Slave mode */
+
+                         SPI1BUF = 0;
+                         IFS0bits.SPI1IF = 0;             // Clear the Interrupt flag
+                         IEC0bits.SPI1IE = 0;             // Disable the interrupt
+
+                         // SPI1CON1 Register Settings
+
+                         SPI1CON1bits.DISSCK = 0;         // Internal Serial Clock is enabled
+                         SPI1CON1bits.DISSDO = 0;         // SDOx pin is controlled by the module
+                         SPI1CON1bits.MODE16 = 1;         // Communication is word-wide (16 bits)
+                         SPI1CON1bits.SMP = 0;            // Input data is sampled at the middle of data
+                                                          // output time.
+                         SPI1CON1bits.CKE = 0;            // Serial output data changes on transition
+                                                          // from Idle clock state to active clock state
+                         SPI1CON1bits.CKP = 0;            // Idle state for clock is a low level; active
+                                                          // state is a high level
+                         SPI1CON1bits.MSTEN = 0;          // Master mode disabled
+                         SPI1STATbits.SPIROV=0;           // No Receive Overflow has occurred
+                         SPI1STATbits.SPIEN = 1;          // Enable SPI module
+
+                         // Interrupt Controller Settings
+
+                         IFS0bits.SPI1IF = 0;             // Clear the Interrupt flag
+                         IEC0bits.SPI1IE = 1;             // Enable the interrupt
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                     DS70005185A-page 17
+dsPIC33/PIC24 Family Reference Manual
+                      3.3.2.2       Slave Select Synchronization
+                      The SSx pin allows Synchronous Slave mode. If the Slave Select Enable bit (SSEN) is set
+                      (SPIxCON1<7> = 1), transmission and reception are enabled in Slave mode only if the SSx pin
+                      is driven to a low state (see Figure 3-4). The port output or other peripheral outputs must not be
+                      driven in order to allow the SSx pin to function as an input. If the SSEN bit is set and the SSx pin
+                      is driven high, the SDOx pin is no longer driven and will tri-state, even if the module is in the
+                      middle of a transmission.
+                      An aborted transmission is retried when the SSx pin is driven low again using the data held in
+                      the SPIxTXB register. If the SSEN bit is not set, the SSx pin does not affect the module operation
+                      in Slave mode.
+                         Note:    To meet the module timing requirements, the SSx pin must be enabled in Slave
+                                  mode when CKE = 1 (see Figure 3-5).
+
+                      3.3.2.3       SPITBF Status Flag Operation
+                      The SPITBF bit in the SPIxSTAT register (SPIxSTAT<1>) functions differently in Slave mode than
+                      it does in Master mode.
+                      • If the SSEN bit is cleared (SPIxCON1<7> = 0), the SPITBF bit is set when the SPIxBUF
+                        register is loaded by the user application. It is cleared when the module transfers data from
+                        the SPIxTXB register to the SPIxSR register. This is similar to the SPITBF bit function in
+                        Master mode.
+                      • If the SSEN bit is set (SPIxCON1<7> = 1), the SPITBF bit is set when the SPIxBUF register
+                        is loaded by the user application. However, it is cleared only when the SPIx module
+                        completes the data transmission. The transmission is aborted when the SSx pin goes high.
+                        Each data word is held in the SPIxTXB register until all bits are transmitted to the receiver.
+
+
+
+
+DS70005185A-page 18                                                                       2014 Microchip Technology Inc.
+                         Serial Peripheral Interface (SPI) Module
+Figure 3-3:         SPIx Slave Mode Timing (Slave Select Pin Disabled)(3)
+
+   SCKx Input
+    (CKP = 0,
+   CKE = 0)(1)
+
+
+   SCKx Input
+    (CKP = 1,
+   CKE = 0)(1)
+
+        SDOx                          bit 7     bit 6    bit 5     bit 4     bit 3     bit 2     bit 1             bit 0
+        Output
+
+    SDIx Input
+    (SMP = 0)
+                                    bit 7                                                                  bit 0
+         Input
+       Sample
+     (SMP = 0)
+
+
+
+
+               User Writes to
+               SPIxBUF(2)
+
+
+
+         SPITBF
+
+
+                                                                                                SPIxSR to
+                                                                                                SPIxRXB
+
+
+         SPIRBF
+                                                                           One Instruction Cycle Latency
+                                                                           to Set the SPIxIF Flag bit
+
+          SPIxIF
+
+
+
+
+   Note 1:       Two SPIx Clock modes are shown only to demonstrate the CKP (SPIxCON<6>) and CKE (SPIxCON<8>) bits’
+                 functionality. Any combination of the CKP and CKE bits can be chosen for the module operation.
+          2:     If there are no pending transmissions, or a transmission is in progress, the data in the SPIxBUF register is
+                 transferred to the SPIxSR register as soon as the user application writes to the SPIxBUF register.
+          3:     Operation for 8-bit mode is shown; the operation for 16-bit mode is similar.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                             DS70005185A-page 19
+dsPIC33/PIC24 Family Reference Manual
+Figure 3-4:        SPIx Slave Mode Timing (Slave Select Pin Enabled)(3)
+
+
+
+        SSx(1)
+
+        SCKx
+     (CKP = 0,
+      CKE = 0)
+
+
+        SCKx
+     (CKP = 1,
+      CKE = 0)                 SPIxBUF
+                   User Writes to
+                   to SPIxBUF SPIxSR
+
+
+    SPITBF(2)
+
+
+        SDOx                        bit 7     bit 6     bit 5     bit 4     bit 3     bit 2      bit 1           bit 0
+
+
+        SDIx
+    (SMP = 0)
+                                  bit 7                                                                  bit 0
+        Input
+      Sample
+    (SMP = 0)
+
+
+       SPIxIF
+
+                                                                                                                 One Instruction
+                                                                                                                 Cycle Latency
+                                                                                                SPIxSR to
+                                                                                                SPIxBUF
+
+      SPIRBF
+
+                                                                                                    User Reads
+                                                                                                    SPIxBUF
+
+
+    Note 1:      When the SSEN bit is set (SPIxCON1<7> = 1), the SSx pin must be driven low to enable transmission and
+                 reception in Slave mode.
+           2:    Transmit data is held in the SPIxTXB register and the SPITBF bit remains set until all bits are transmitted.
+           3:    Operation for 8-bit mode is shown; the operation for 16-bit mode is similar.
+
+
+
+
+DS70005185A-page 20                                                                                 2014 Microchip Technology Inc.
+                         Serial Peripheral Interface (SPI) Module
+Figure 3-5:         SPIx Slave Mode Timing (CKE = 1)(4)
+
+
+     SSx(1,2)
+
+
+   SCK Input
+    (CKP = 0
+    CKE = 1)
+
+
+   SCK Input
+    (CKP = 1
+    CKE = 1)
+
+       SDO
+      Output                    bit 7           bit 6     bit 5     bit 4      bit 3     bit 2     bit 1      bit 0
+
+
+    SDI Input
+   (SMP = 0)
+                                        bit 7                                                               bit 0
+       Input
+     Sample
+   (SMP = 0)
+
+
+      SPIxIF
+
+                                                                                                  SPIxSR to
+        Write to                                                                                  SPIxRXB
+        SPIxBUF
+
+
+
+   SPITBF(3)
+
+
+
+     SPIRBF
+
+
+
+   Note 1:      The SSx pin must be used for Slave mode operation when CKE = 1.
+          2:    When the SSEN bit is set (SPIxCON1<7> = 1), the SSx pin must be driven low to enable transmission and
+                reception in Slave mode.
+          3:    Transmit data is held in the SPIxTXB register and the SPITBF bit remains set until all bits are transmitted.
+          4:    Operation for 8-bit mode is shown; the operation for 16-bit mode is similar.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                                DS70005185A-page 21
+dsPIC33/PIC24 Family Reference Manual
+                           3.4         Enhanced Buffer Master and Slave Modes
+                           The dsPIC33F/PIC24H devices do not support the Enhanced Buffer mode. The operation of
+                           Enhanced Buffer Master and Slave modes is very similar to Standard Master and Slave modes.
+                           The difference is that data can be thought of as moving from the Shift register to a receive FIFO
+                           buffer and moving from the transmit FIFO buffer to the Shift register. The relationships in
+                           Enhanced Buffer mode are shown in Figure 3-6.
+
+Figure 3-6:         SPIx Master/Slave Connection (Enhanced Buffer Modes)
+
+
+                         PROCESSOR 1                                                             PROCESSOR 2
+                  (SPIx Enhanced Buffer Master)                                            (SPIx Enhanced Buffer Slave)
+                                                          SDOx                    SDIx
+
+
+                               Shift Register              SDIx                   SDOx             Shift Register
+                                (SPIxSR)                                                            (SPIxSR)
+                         MSb                    LSb                                          MSb                    LSb
+
+              Transfer                                Transfer                      Transfer                          Transfer
+
+
+
+
+               8-Level FIFO               8-Level FIFO                                8-Level FIFO           8-Level FIFO
+               Receive Buffer            Transmit Buffer                              Receive Buffer        Transmit Buffer
+
+
+
+
+                                SPIx Buffer                        Serial Clock                     SPIx Buffer
+                               (SPIxBUF)(2)                SCKx                   SCKx
+                                                                                                   (SPIxBUF)(2)
+
+
+                                                          SSx(1)                  SSx(1)
+
+
+                 MSTEN (SPIxCON1<5> = 1 and                                               SSEN (SPIxCON1<7>) = 1,
+                  SPIBEN (SPIxCON2<0>) = 1                                               MSTEN (SPIxCON1<5>) = 0 and
+                                                                                          SPIBEN (SPIxCON2<0> = 1
+
+
+        Note 1:      The use of the SSx pin in Slave mode is optional.
+             2:      The user application must write transmit data to read the received data from the SPIxBUF register.
+                     The SPIxTXB and SPIxRXB registers are memory-mapped to the SPIxBUF register.
+
+
+
+
+DS70005185A-page 22                                                                                      2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.4.1        ENHANCED BUFFER MASTER MODE
+                       In Enhanced Buffer Master mode, the system clock is prescaled and then used as the serial
+                       clock. The prescaling is based on the settings in the Primary Prescale bits (PPRE<1:0>) and
+                       Secondary Prescale bits (SPRE<1:0>) in the SPIxCON1 register. The serial clock is output
+                       through the SCKx pin to slave devices. Clock pulses are generated only when there is data to be
+                       transmitted (see Section 4.0 “Master Mode Clock Frequency”). The CKP and CKE bits
+                       determine on which edge of the clock data transmission occurs.
+                       The CPU loads data to be transmitted into the transmit buffer by writing to the SPIxBUF register.
+                       An SPIx transmission begins after the first buffer write. Up to eight data elements can be loaded.
+                       The number of pending transfers is indicated by the SPIx Buffer Element Count bits
+                       (SPIBEC<2:0>) in the SPIx Status and Control (SPIxSTAT<10:8>) register.
+                       In Master mode, the buffer element count reflects the number of transfers pending in the transmit
+                       buffer. In Slave mode, the buffer element count reflects the number of unread receptions in the
+                       receive buffer. If the Shift register is empty, the first write will immediately load the Shift register,
+                       leaving eight transmit buffer locations available.
+                       After completion of an SPIx transfer, the receive buffer location is updated with the received data.
+                       The CPU accesses the received data by reading the SPIxBUF register. After each CPU read, the
+                       SPIxBUF points to the next buffer location. The SPIx transfers continue until all the pending data
+                       transfers have completed.
+                       The SPIx module operation in Enhanced Buffer Master mode is as described:
+                       1.   After the module is set up for Master mode of operation and is enabled, data to be transmit-
+                            ted is written to the SPIxBUF register and is loaded into the next available transmit buffer
+                            location. The SPITBF bit (SPIxSTAT<1>) is set after eight pending transfers are loaded.
+                       2.   The contents of the current buffer location are moved to the SPIx Shift register, SPIxSR.
+                            The SPITBF bit is cleared by the module if a buffer location is available for a CPU write.
+                       3.   A series of 8/16 clock pulses shift out 8/16 bits of transmit data from the SPIxSR register
+                            to the SDOx pin, and simultaneously, shift in the data at the SDIx pin into the SPIxSR
+                            register.
+                       4.   When the transfer is complete, the following occurs:
+                            • When the ongoing transmit and receive operation is complete, the contents of the
+                                SPIxSR register are moved into the next available location in the receive buffer.
+                            • If the last unread location is written by the SPIx module, the SPIRBF bit
+                                (SPIxSTAT<0>) is set by the module, indicating that all buffer locations are full. The
+                                SPIx interrupts can be enabled by selecting an Interrupt mode with the SISEL<2:0>
+                                bits (SPIxSTAT<4:2>) and by setting the SPIx Interrupt Enable bit (SPIxIE). The
+                                SPIxIF flag is not cleared automatically by the hardware.
+                            • After the SPIxBUF register is read by the user application, the hardware clears the
+                                SPIRBF bit and the SPIxBUF register increments to the next unread receive buffer
+                                location. If the SPIxBUF register reads beyond the last unread location, it will not
+                                increment the buffer location. The SRXMPT bit (SPIxSTAT<5>) shows the status of the
+                                RX FIFO. This bit is set if the RX FIFO is empty.
+                       5.   If the SPIRBF bit is set (receive buffer is full) when the SPIx module needs to transfer data
+                            from the SPIxSR register to the buffer, the module will set the SPIROV bit (SPIxSTAT<6>),
+                            indicating an overflow condition and set the SPIxIF bit.
+                       6.   Data to be transmitted can be written to the SPIxBUF register by the user application at
+                            any time as long as the SPITBF bit (SPIxSTAT<1>) is clear. Up to eight pending transfers
+                            can be loaded into the buffer allowing continuous transmission. The SRMPT bit
+                            (SPIxSTAT<7>) shows the status of the SPIxSR register. The SRMPT status bit is set
+                            when the SPIxSR register is empty and ready to send or receive the data.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                        DS70005185A-page 23
+dsPIC33/PIC24 Family Reference Manual
+                      The buffer overflow event, when the SPIROV bit is set, can corrupt the FIFO Pointers and status
+                      bits of the SPIx module. To recover from an overflow, the SPIx module has to be disabled
+                      (SPIEN = 0) and then re-enabled (SPIEN = 1).
+                      The timing of events in Enhanced Buffer Master mode operation is essentially the same as that
+                      for Standard Master mode, as shown in Figure 3-2.
+                      The following procedure is used to set up the SPIx module for the Enhanced Buffer Master mode
+                      of operation:
+                      1.   If using interrupts:
+                           a) Clear the SPIxIF bit in the respective IFSx register.
+                           b) Select an Interrupt mode using the SISEL<2:0> bits (SPIxSTAT<4:2>).
+                           c) Set the SPIxIE bit in the respective IECx register.
+                           d) Write the SPIxIP bits in the respective IPCx register.
+                      2.   When MSTEN (SPIxCON1<5>) = 1, write the desired settings to the SPIxCON1 and
+                           SPIxCON2 registers.
+                      3.   Clear the SPIROV bit (SPIxSTAT<6>).
+                      4.   Select Enhanced Buffer mode by setting the SPIBEN bit (SPIxCON2<0>).
+                      5.   Enable the SPIx operation by setting the SPIEN bit (SPIxSTAT<15>).
+                      6.   Write the data to be transmitted to the SPIxBUF register. The transmission (and reception)
+                           starts as soon as data is written to the SPIxBUF register.
+
+
+
+
+DS70005185A-page 24                                                                      2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.4.2        ENHANCED BUFFER SLAVE MODE
+                       In Enhanced Buffer Slave mode, the data is transmitted and received as the external clock pulses
+                       appear on the SCKx pin. The CKP (SPIxCON1<6>) and CKE (SPIxCON1<8>) bits determine on
+                       which edge of the clock data transmission occurs.
+                            Note:   In Slave mode, the SPIx clock frequency on the SCKx pin must be lower than the
+                                    device system frequency (FSCK < FCY).
+                       The rest of the operation of the module is identical to that in Master mode. Specific timings for
+                       Enhanced Buffer Slave mode operations are identical to those for Standard Slave mode, as
+                       shown in Figure 3-3 through Figure 3-5.
+                       To set up the SPIx module for the Enhanced Buffer Slave mode of operation, complete the
+                       following steps:
+                       1.    Clear the SPIxBUF register.
+                       2.    If using interrupts:
+                             a) Clear the SPIxIF bit in the respective IFSx register.
+                             b) Select an Interrupt mode using the SISEL<2:0> bits (SPIxSTAT<4:2>).
+                             c) Set the SPIxIE bit in the respective IECx register.
+                             d) Write the SPIxIP bits in the respective IPCx register to set the interrupt priority.
+                       3.    When MSTEN (SPIxCON1<5>) = 0, write the desired settings to the SPIxCON1 and
+                             SPIxCON2 registers.
+                       4.    Clear the SMP bit (SPIxCON1<9>).
+                       5.    If the CKE bit is set, the SSEN bit (SPIxCON1<7>) must be set, therefore enabling the
+                             SSx pin.
+                       6.    Clear the SPIROV bit (SPIxSTAT<6>).
+                       7.    Select Enhanced Buffer mode by setting the SPIBEN bit (SPIxCON2<0>).
+                       8.    Enable the SPIx operation by setting the SPIEN bit (SPIxSTAT<15>).
+
+                       3.4.2.1       Slave Select Synchronization
+                       The SSx pin allows a Synchronous Slave mode. If the SSEN bit (SPIxCON1<7>) is set,
+                       transmission and reception are enabled in Slave mode only if the SSx pin is driven to a low state
+                       (see Figure 3-4). The port output or other peripheral outputs must not be driven in order to allow
+                       the SSx pin to function as an input. If the SSEN bit is set and the SSx pin is driven high, the SDOx
+                       pin is no longer driven and will tri-state, even if the module is in the middle of a transmission. An
+                       aborted transmission will be retried the next time the SSx pin is driven low using the data held in
+                       the SPIxTXB register. If the SSEN bit is not set, the SSx pin does not affect the module operation
+                       in Slave mode.
+
+                            Note:   To meet the module timing requirements, the SSx pin must be enabled in Slave
+                                    mode when CKE = 1 (see Figure 3-5).
+
+                       3.4.2.2       SPITBF Status Flag Operation
+                       The function of the SPITBF bit (SPIxSTAT<1>) is different in the Slave mode of operation. If the
+                       SSEN bit is cleared, the SPITBF bit is set when the last available buffer location is loaded by the
+                       user application. It is cleared when the module transfers data from the buffer to the SPIxSR
+                       register and a buffer location is available for a CPU write. This is similar to the SPITBF bit function
+                       in Master mode.
+                       If the SSEN bit is set, the SPITBF bit is set when the last available buffer location is loaded by
+                       the user application. However, it is cleared only when the SPIx module completes data
+                       transmission, leaving a buffer location available for a CPU write. A transmission will be aborted
+                       when the SSx pin goes high. Each data word is held in the buffer until all bits are transmitted to
+                       the receiver.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                       DS70005185A-page 25
+dsPIC33/PIC24 Family Reference Manual
+                      3.5        Framed SPI Modes
+                      The SPIx module supports a basic framed SPI protocol while operating in either Master or Slave
+                      mode. Four control bits that configure the framed SPI operation are:
+                      • Framed SPI Support (FRMEN)
+                        The FRMEN bit (SPIxCON2<15>) enables Framed SPI mode and causes the SSx pin to be
+                        used as a frame synchronization pulse input or output pin. The state of the SSEN bit
+                        (SPIxCON1<7>) is ignored.
+                      • Frame Sync Pulse Direction Control (SPIFSD)
+                        The SPIFSD bit (SPIxCON2<14>) determines whether the SSx pin is an input or an output
+                        (whether the module receives or generates the frame synchronization pulse).
+                      • Frame Sync Pulse Polarity (FRMPOL)
+                        The FRMPOL bit (SPIxCON2<13>) selects the polarity of the frame synchronization pulse
+                        (active-high or active-low) for a single SPI data frame.
+                      • Frame Sync Pulse Edge Select (FRMDLY)
+                        The FRMDLY bit (SPIxCON2<1>) selects the synchronization pulse to either coincide with,
+                        or precede, the first serial clock pulse.
+                      In Framed Master mode, the SPIx module generates the frame synchronization pulse and
+                      provides this pulse to other devices at the SSx pin.
+                      In Framed Slave mode, the SPIx module uses a frame synchronization pulse received at the SSx
+                      pin.
+                         Note:     The SSx and SCKx pins must be used in all Framed SPI modes.
+
+                      The Framed SPI modes are supported in conjunction with the Unframed Master and Slave
+                      modes. As a result, the following four framed SPI configurations are available to the user
+                      application:
+                      • SPI Master mode and Framed Master mode
+                      • SPI Master mode and Framed Slave mode
+                      • SPI Slave mode and Framed Master mode
+                      • SPI Slave mode and Framed Slave mode
+                      These four Framed modes determine whether the SPIx module generates the serial clock and
+                      the frame synchronization pulse.
+                      • When FRMEN (SPIxCON2<15>) = 1 and MSTEN (SPIxCON1<5>) = 1, the SCKx pin
+                        becomes an output and the SPIx clock at SCKx becomes a free-running clock.
+                      • When FRMEN = 1 and MSTEN = 0, the SCKx pin becomes an input. The source clock
+                        provided to the SCKx pin is assumed to be a free-running clock.
+                      The polarity of the clock is selected by the CKP bit (SPIxCON1<6>). The CKE bit (SPIxCON1<8>)
+                      is not used for Framed SPI modes and should be programmed to ‘0’ by the user application.
+                      • When CKP = 0, the frame synchronization pulse output and the SDOx data output change
+                        on the rising edge of the clock pulses at the SCKx pin. Input data is sampled at the SDIx
+                        input pin on the falling edge of the serial clock.
+                      • When CKP = 1, the frame synchronization pulse output and the SDOx data output change
+                        on the falling edge of the clock pulses at the SCKx pin. Input data is sampled at the SDIx
+                        input pin on the rising edge of the serial clock.
+
+
+
+
+DS70005185A-page 26                                                                    2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.5.1         FRAME MASTER AND FRAME SLAVE MODES
+                       • When SPIFSD (SPIxCON2<14>) = 0, the SPIx module is in Framed Master mode. In this
+                         mode, the frame synchronization pulse is initiated by the module when the user application
+                         writes the transmit data to the SPIxBUF location (writing the SPIxTXB register with transmit
+                         data). At the end of the frame synchronization pulse, the data is transferred from the
+                         SPIxTXB register to the SPIxSR register and data transmission/reception begins.
+                       • When SPIFSD = 1, the SPIx module is in Framed Slave mode. In this mode, the frame
+                         synchronization pulse is generated by an external source. When the module samples the
+                         frame synchronization pulse, it transfers the contents of the SPIxTXB register to the
+                         SPIxSR register and data transmission/reception begins. The user application must ensure
+                         that the correct data is loaded into the SPIxBUF register for transmission before the frame
+                         synchronization pulse is received.
+                          Note:       Receiving a frame synchronization pulse starts a transmission, regardless of
+                                      whether data is written to the SPIxBUF register. If no write operation is performed,
+                                      the existing contents of the SPIxTXB register are transmitted.
+
+                       3.5.2         SPI MASTER/FRAMED MASTER MODE
+                       In SPI Master/Framed Master mode, the SPIx module generates both the clock and the frame
+                       synchronization signals, as shown in Figure 3-7. This configuration is enabled by setting the
+                       MSTEN and FRMEN bits (SPIxCON1<5> and SPIxCON2<15>) to ‘1’, and the SPIFSD bit
+                       (SPIxCON2<14>) to ‘0’.
+                       In this mode, the serial clock is output continuously at the SCKx pin, regardless of whether the
+                       module is transmitting. When the SPIxBUF register is written, the SSx pin is driven to its active
+                       state (as determined by the FRMPOL bit) on the appropriate transmit edge of the SCKx clock
+                       and remains active for one data frame. Figure 3-8 shows that if the FRMDLY control bit
+                       (SPIxCON2<1>) is cleared, the frame synchronization pulse precedes the data transmission.
+                       Figure 3-9 shows that if FRMDLY is set, the frame synchronization pulse coincides with the
+                       beginning of the data transmission. The module starts transmitting data on the next transmit edge
+                       of the SCKx pin.
+
+                       Figure 3-7:          SPIx Master/Framed Master Connection Diagram
+
+
+                                         dsPIC33/PIC24                                      PROCESSOR 2
+                                   (SPIx Master/Framed Master)
+
+                                                           SDOx                    SDIx
+
+
+                                                            SDIx                   SDOx
+
+                                                                   Serial Clock
+                                                           SCKx                    SCKx
+
+                                                             SSx                   SSx
+                                                                   Frame Sync
+                                                                   Pulse
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                     DS70005185A-page 27
+dsPIC33/PIC24 Family Reference Manual
+Figure 3-8:     SPIx Master/Framed Master Timing (FRMDLY = 0)
+
+                         SCKx
+                      (CKP = 1)
+                         SCKx
+                      (CKP = 0)
+
+                       SSx
+               (FRMPOL = 1)
+
+
+
+                       SSx
+               (FRMPOL = 0)
+                         SDOx                                          bit 15   bit 14       bit 13    bit 12
+
+                          SDIx                                         bit 15   bit 14       bit 13    bit 12
+
+                       Write to SPIxBUF                                                  Receive Samples at SDIx
+                                                     Pulse Generated at SSx
+
+
+
+
+Figure 3-9:     SPIx Master/Framed Master Timing (FRMDLY = 1)
+
+                      SCKx
+                  (CKP = 1)
+                         SCKx
+                      (CKP = 0)
+
+                       SSx
+               (FRMPOL = 1)
+
+
+
+                       SSx
+               (FRMPOL = 0)
+
+                          SDOx                                         bit 15   bit 14       bit 13    bit 12
+
+
+                           SDIx                                        bit 15   bit 14        bit 13   bit 12
+
+
+                                  Write to SPIxBUF                                  Pulse Generated by SSx,
+                                                                                    Receive Samples at SDIx
+
+
+
+
+DS70005185A-page 28                                                                                2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.5.3         SPI MASTER/FRAMED SLAVE MODE
+                       In SPI Master/Framed Slave mode, the module generates the clock signal, but uses the Slave
+                       module’s frame synchronization signal for data transmission (see Figure 3-10). It is enabled by
+                       setting the MSTEN, FRMEN and SPIFSD bits (SPIxCON1<5> and SPIxCON2<15:14>) to ‘1’.
+                       In this mode, the SSx pin is an input. It is sampled on the sample edge of the SPIx clock. When
+                       it is sampled in its active state, data is transmitted on the subsequent transmit edge of the SPIx
+                       clock. The SPIx Interrupt Flag, SPIxIF, is set when the transmission is complete. The user
+                       application must make sure that the correct data is loaded into the SPIxBUF register for
+                       transmission before the signal is received at the SSx pin.
+
+                       Figure 3-10:        SPIx Master/Framed Slave Connection Diagram
+
+
+                                         dsPIC33/PIC24                                              PROCESSOR 2
+                                   (SPIx Master/Framed Slave)
+
+                                                          SDOx                          SDIx
+
+
+                                                           SDIx                         SDOx
+
+                                                                     Serial Clock
+                                                           SCKx                         SCKx
+
+                                                            SSx                         SSx
+                                                                     Frame Sync
+                                                                     Pulse
+
+
+
+
+Figure 3-11:      SPIx Master/Framed Slave Timing (FRMDLY = 0)
+
+
+                         SCKx
+                      (CKP = 1)
+                         SCKx
+                      (CKP = 0)
+
+                         SSx
+                 (FRMPOL = 1)
+
+
+
+                         SSx
+                 (FRMPOL = 0)
+
+                         SDOx                                        bit 15    bit 14      bit 13     bit 12
+
+
+                          SDIx                                      bit 15     bit 14      bit 13     bit 12
+
+                     Write to SPIxBUF                                                   Receive Samples at SDIx
+                                                 Sample SSx pin for Pulse
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                               DS70005185A-page 29
+dsPIC33/PIC24 Family Reference Manual
+Figure 3-12:    SPIx Master/Framed Slave Timing (FRMDLY = 1)
+
+
+                         SCKx
+                      (CKP = 1)
+
+                         SCKx
+                      (CKP = 0)
+
+                        SSx
+                (FRMPOL = 1)
+
+
+
+                        SSx
+                (FRMPOL = 0)
+
+                         SDOx                                          bit 15    bit 14    bit 13   bit 12
+
+
+                          SDIx                                         bit 15    bit 14    bit 13   bit 12
+
+                              Write to SPIxBUF                                       Pulse Generated by SSx,
+                                                                                     Receive Samples at SDIx
+
+
+
+
+                      3.5.4         SPI SLAVE/FRAMED MASTER MODE
+                      In SPI Slave/Framed Master mode, the module acts as an SPIx slave and takes its clock from
+                      the other SPIx module; however, it produces frame synchronization signals to control data
+                      transmission (see Figure 3-13). It is enabled by setting the MSTEN bit (SPIxCON1<5>) to ‘0’, the
+                      FRMEN bit (SPIxCON2<15>) to ‘1’ and the SPIFSD bit (SPIxCON2<14>) to ‘0’.
+                      The SPIx input clock is continuous in Slave mode. The SSx pin is an output pin when the SPIFSD
+                      bit is low. Therefore, when the SPIxBUF register is written, the module drives the SSx pin to the
+                      active state, on the appropriate transmit edge of the SPIx clock, for one SPIx clock cycle. Data
+                      starts transmitting on the appropriate SPIx clock transmit edge.
+
+Figure 3-13:    SPIx Slave/Framed Master Connection Diagram
+
+
+                         dsPIC33/PIC24                                             PROCESSOR 2
+                   (SPIx Slave/Framed Master)
+
+                                                 SDOx                     SDIx
+
+
+                                                 SDIx                     SDOx
+
+                                                        Serial Clock
+                                                 SCKx                     SCKx
+
+                                                  SSx                     SSx
+                                                        Frame Sync
+                                                        Pulse
+
+
+
+
+DS70005185A-page 30                                                                            2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       3.5.5        SPI SLAVE/FRAMED SLAVE MODE
+                       In SPI Slave/Framed Slave mode, the module gets both its clock and frame synchronization
+                       signal from the master module (see Figure 3-14). This mode is enabled by setting the MSTEN
+                       bit (SPIxCON1<5>) to ‘0’, the FRMEN bit (SPIxCON2<15>) to ‘1’ and the SPIFSD bit
+                       (SPIxCON2<14>) to ‘1’.
+                       In this mode, both the SCKx and SSx pins are inputs. The SSx pin is sampled on the sample
+                       edge of the SPIx clock. When SSx is sampled at its active state, data is transmitted on the
+                       appropriate transmit edge of SCKx.
+
+                       Figure 3-14:        SPIx Slave/Framed Slave Connection Diagram
+
+
+                                        dsPIC33/PIC24                                      PROCESSOR 2
+                                   (SPIx Slave/Framed Slave)
+
+                                                          SDOx                      SDIx
+
+
+                                                           SDIx                     SDOx
+
+                                                                     Serial Clock
+                                                          SCKx                      SCKx
+
+                                                               SSx                  SSx
+                                                                     Frame Sync
+                                                                     Pulse
+
+
+
+
+                       3.6         SPIx Receive Only Operation
+                       Setting the Disable SDOx Pin (DISSDO) control bit (SPIxCON1<11>) disables transmission at the
+                       SDOx pin. This allows the SPIx module to be configured for a Receive Only mode of operation. The
+                       SDOx pin is controlled by the respective port function if the DISSDO bit is set. The DISSDO function
+                       is applicable to all SPI operating modes.
+
+                       3.7         SPIx Error Handling
+                       If a new data word has been shifted into the SPIxSR register and the previous SPIxBUF register
+                       contents have not been read, the SPIROV bit (SPIxSTAT<6>) is set. Any received data in the
+                       SPIxSR register is not transferred and further data reception is disabled until the SPIROV bit is
+                       cleared. The SPIROV bit is not cleared automatically by the module; it must be cleared by the
+                       user application.
+                       The SPIxIF bit is set when the SPIRBF bit (SPIxSTAT<0>) is set. The interrupt flag cannot be
+                       cleared by the hardware; it must be reset in software. The actual SPIx interrupt is generated only
+                       when the corresponding SPIxIE bit is set in the IECx Control register.
+                       In addition, the SPIx Error Interrupt Flag (SPIxEIF or SPFxIF for PIC24F devices) is set when the
+                       SPIROV bit is set. This interrupt flag must be cleared in software. The actual SPIx error interrupt
+                       is generated only when the corresponding SPIxEIE bit is set in the IECx Control register.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                    DS70005185A-page 31
+dsPIC33/PIC24 Family Reference Manual
+4.0     MASTER MODE CLOCK FREQUENCY
+                      In Master mode, the clock provided to the SPIx module is the instruction cycle clock (TCY). This
+                      clock is then prescaled by the primary prescaler, specified by the Primary Prescale (PPRE<1:0>)
+                      bits (SPIxCON1<1:0>), and the secondary prescaler, specified by the Secondary Prescale
+                      (SPRE<2:0>) bits (SPIxCON1<4:2>). The prescaled instruction clock becomes the serial clock
+                      and is provided to external devices through the SCKx pin.
+                         Note:    The SCKx signal clock is not free-running for normal SPI modes. It only runs for 8 or
+                                  16 pulses when the SPIxBUF is loaded with data; however, it is continuous for
+                                  Framed modes.
+
+                      Equation 4-1 is used to calculate the SCKx clock frequency as a function of the primary and
+                      secondary prescaler settings.
+                      Equation 4-1:     SPI Clock Frequency
+                                                                        FCY
+                                              FSCK =
+                                                       Primary Prescaler * Secondary Prescaler
+
+
+                         Note:    Not all clock rates are supported. For more information, refer to the SPIx timing
+                                  specifications in the “Electrical Characteristics” chapter of the specific device
+                                  data sheet.
+
+
+
+
+DS70005185A-page 32                                                                      2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+5.0      SPI OPERATION WITH DMA
+                       The DMA module transfers data between the CPU and SPIx module without CPU assistance.
+                       Refer to the specific device data sheet for the availability of the “Direct Memory Access (DMA)”
+                       chapter for the particular device. When using the SPIx module with DMA, the SPIBEN bit can be
+                       programmed to ‘0’, thereby disabling FIFO operation. For more information on the DMA module,
+                       refer to the DMA Family Reference Manual section specific to the device.
+                       If the DMA channel is associated with the SPIx receiver, the SPIx issues a DMA request every time
+                       the data is ready to be moved from the SPIx module to RAM. The DMA transfers data from the
+                       SPIxBUF register into RAM and issues a CPU interrupt after a predefined number of transfers.
+                       Similarly, if the DMA channel is associated with the SPIx transmitter, the SPIx module issues a
+                       DMA request after each successful transmission. After each DMA request, the DMA transfers
+                       new data into the SPIxBUF register and issues a CPU interrupt after a predefined number of
+                       transfers. Since the DMA channels are unidirectional, two DMA channels are required if the SPIx
+                       module is used for both receive and transmit.
+                       Starting a DMA transfer to and from the SPIx peripheral depends on the SPIx data direction and
+                       whether the operation occurs in Slave or Master mode.
+                       • TX Only in Master mode:
+                         In this configuration, no DMA request is issued until the first block of SPIx data is sent. To
+                         initiate the DMA transfers, the user application must first send data using the DMA Manual
+                         Transfer mode or it must first write data into the SPIx Buffer (SPIxBUF), independently of the
+                         DMA.
+                       • RX Only in Master mode:
+                         In this configuration, no DMA request is issued until the first block of SPIx data is received.
+                         However, in Master mode, no data is received until the SPIx transmits first. To initiate the DMA
+                         transfers, the user application must use DMA Null Data Write mode and start DMA Manual
+                         Transfer mode.
+                       • RX and TX in Master mode:
+                         In this configuration, no DMA request is issued until the first block of SPIx data is received.
+                         However, in Master mode, no data is received until the SPIx transmits. To initiate the DMA
+                         transfers, the user application must first send data using the DMA Manual Transfer mode or it
+                         must first write data into the SPIx Buffer (SPIxBUF), independently of the DMA.
+                       • TX Only in Slave mode:
+                         In this configuration, no DMA request is issued until the first block of SPIx data is received. To
+                         initiate the DMA transfers, the user application must first send data using the DMA Manual
+                         Transfer mode or it must first write data into the SPIx Buffer (SPIxBUF), independently of the
+                         DMA.
+                       • RX Only in Slave mode:
+                         This configuration generates a DMA request as soon as the first SPIx data has arrived. Special
+                         steps are not required by the user application to initiate the DMA transfer.
+                       • RX and TX in Slave mode
+                         In this configuration, no DMA request is issued until the first SPIx data block is received. To
+                         initiate the DMA transfers, the user application must first send data using the DMA Manual
+                         Transfer mode or it must first write data into the SPIx Buffer (SPIxBUF), independently of the
+                         DMA.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                    DS70005185A-page 33
+dsPIC33/PIC24 Family Reference Manual
+                      5.1     SPI Transmission and Reception with DMA
+                      The SPIx module is configured in Master mode. Two DMA channels are used, such as Channel 0
+                      for data transmission and Channel 1 for data reception.
+                      DMA Channel 0 is configured for SPI transmission with the following parameters:
+                      • Transfer data from RAM to the SPIx module continuously
+                      • Register Indirect with Post-Increment Addressing mode
+                      • Use two ping-pong buffers
+                      • 16 transfers per buffer
+                      DMA Channel 1 is configured for SPI reception with the following parameters:
+                      • Transfer data from the SPIx module to RAM continuously
+                      • Register Indirect with Post-Increment Addressing mode
+                      • Use two ping-pong buffers
+                      • 16 transfers per buffer
+                      Example 5-1 shows the SPI1 transmission and reception with DMA for dsPIC® devices.
+
+                      Example 5-1:     SPI1 Transmission and Reception with DMA
+                       Setup for SPI1 Master Mode:
+                      // Interrupt Controller Settings
+                      IFS0bits.SPI1IF = 0;
+
+                      // SPI1CON1 Register Settings
+                      SPI1CON1bits.MODE16 = 1; // Communication is word-wide (16 bits)
+                      SPI1CON1bits.MSTEN = 1;   // Master mode enabled
+
+                      // SPI1CON2 Register Settings
+                      SPI1CON2bits.FRMEN = 0;   // Framed mode disabled
+
+                      // SPI1STAT Register Settings
+                      SPI1STATbits.SPISIDL = 0; // Continue module operation in Idle mode
+                      SPI1STATbits.SPIBEC = 0; // Buffer Length = 1 Word
+                      SPI1STATbits.SPIROV = 0; // No Receive Overflow has occurred
+                      SPI1STATbits.SPIEN = 1;   // Enable SPI module
+
+                      // Force First Word After Enabling SPI
+                      DMA0REQbits.FORCE=1;
+                      while (DMA0REQbits.FORCE == 1);
+
+                      IEC0bits.SPI1IE = 1;
+                      Set up DMA Channel 0 to Transmit in Continuous Ping-Pong Mode:
+                      unsigned int TxBufferA[16] __attribute__((space(xmemory)));
+                      unsigned int TxBufferB[16] __attribute__((space(xmemory)));
+
+                      IFS0bits.DMA0IF = 0;
+                      IEC0bits.DMA0IE = 1;
+                      DMACS0 = 0;
+                      DMA0CON = 0x2002;
+                      DMA0STAL = (unsigned int)&TxBufferA;
+                      DMA0STAH = (unsigned int)&TxBufferB;
+                      DMA0PAD = (volatile unsigned int) &SPI1BUF;
+                      DMA0CNT = 15;
+                      DMA0REQ = 0x000A;
+                      DMA0CONbits.CHEN = 1;
+                      Set up DMA Channel 1 to Receive in Continuous Ping-Pong Mode:
+                      unsigned int RxBufferA[16] __attribute__((space(xmemory)));
+                      unsigned int RxBufferB[16] __attribute__((space(xmemory)));
+
+                      IFS0bits.DMA1IF = 0;
+                      IEC0bits.DMA1IE = 1;
+                      DMA1CON = 0x0002;
+                      DMA1STAL = (unsigned int)&RxBufferA;
+                      DMA1STAH = (unsigned int)&RxBufferB;
+                      DMA1PAD = (volatile unsigned int) &SPI1BUF;
+                      DMA1CNT = 15;
+                      DMA1REQ = 0x000A;
+                      DMA1CONbits.CHEN = 1;
+
+
+
+DS70005185A-page 34                                                                   2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+                       Example 5-1:      SPI1 Transmission and Reception with DMA (Continued)
+                        SPI and DMA Interrupt Handlers:
+                        void __attribute__((__interrupt__)) _SPI1Interrupt(void)
+                        {
+                            IFS0bits.SPI1IF = 0;
+                        }
+
+                        void __attribute__((__interrupt__)) _DMA0Interrupt(void)
+                        {
+                        static unsigned int BufferCount = 0; // Keep record of the buffer that
+                                                              // contains TX data
+                        if(BufferCount == 0)
+                        {
+                        TxData(BufferA);                      // Transmit SPI data in
+                                                              // DMA RAM Primary buffer
+                        }
+                        else
+                        {
+                        TxData(BufferB);                      // Transmit SPI data in DMA RAM
+                                                              // Secondary buffer
+                        }
+                        BufferCount ^= 1;
+                        IFS0bits.DMA0IF = 0;                  // Clear the DMA0 Interrupt flag
+                        }
+
+                        void __attribute__((__interrupt__)) _DMA1Interrupt(void)
+                        {
+                        static unsigned int BufferCount = 0; // Keep record of the buffer
+                                                              // that contains RX data
+                        if(BufferCount == 0)
+                        {
+                        ProcessRxData(BufferA);               // Process received SPI data in
+                                                              // DMA RAM Primary buffer
+                        }
+                        else
+                        {
+                        ProcessRxData(BufferB);               // Process received SPI data in
+                                                              // DMA RAM Secondary buffer
+                        }
+                        BufferCount ^= 1;
+                        IFS0bits.DMA1IF = 0;                  // Clear the DMA1 Interrupt flag
+                        }
+
+
+
+                       5.2         SPI and DMA with Null Data Write Mode
+                       When the SPIx module is configured for Master mode, and only received data is of interest, some
+                       data must be written to the SPIx transmit buffer in order to start the SPIx clock and receive the
+                       external data. In this situation, use Null Data Write mode of the DMA. For more information on
+                       DMA Null Data Write mode, refer to the DMA Family Reference Manual section specific to the
+                       device.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                                  DS70005185A-page 35
+dsPIC33/PIC24 Family Reference Manual
+6.0     SPI OPERATION IN POWER-SAVING MODES
+                      The dsPIC33/PIC24 families of devices have three power modes, which consist of normal (Full-
+                      Power) mode and two power-saving modes invoked by the PWRSAV instruction. Depending on
+                      the SPI mode selected, the entry into a power-saving mode may also affect the operation of the
+                      module.
+
+                      6.1      Sleep Mode
+                      When the device enters Sleep mode, the system clock is disabled. The consequences of
+                      entering Sleep mode depend on the mode (Master or Slave) on which the module was configured
+                      at the time Sleep mode is invoked.
+
+                      6.1.1       MASTER MODE OPERATION
+                      The following are the effects of entering Sleep mode when the SPIx module is configured for
+                      Master mode operation:
+                      • The SPI clock generator in the SPIx module stops and is reset.
+                      • The transmitter and receiver stop in Sleep mode. The transmitter or receiver will not
+                        continue with a partially completed transmission at wake-up.
+                      • If the SPIx module enters Sleep mode in the middle of a transmission or reception, the
+                        transmission or reception is aborted. Because there is no automatic way to prevent an
+                        entry into Sleep mode if a transmission or reception is pending, the user application must
+                        synchronize entry into Sleep mode with the SPIx module operation to avoid aborted
+                        transmissions.
+
+                      6.1.2       SLAVE MODE OPERATION
+                      As the clock pulses at the SCKx pin are externally provided for Slave mode, the module
+                      continues to function in Sleep mode. It completes any transactions during the transition into
+                      Sleep mode. On completion of a transaction, the SPIRBF flag is set. Consequently, the SPIxIF
+                      bit is set.
+                      If SPIx interrupts are enabled (SPIxIE = 1), the device wakes up from Sleep. If the SPIx Interrupt
+                      Priority Level (IPL) is greater than the present CPU priority level, code execution resumes at the
+                      SPIx interrupt vector location. Otherwise, code execution continues with the instruction following
+                      the PWRSAV instruction that previously invoked Sleep mode. The module is not reset on entering
+                      Sleep mode if it is operating as a slave device.
+                      The register contents are not affected when the SPIx module is going into, or coming out of,
+                      Sleep mode.
+
+                      6.2      Idle Mode
+                      When the device enters Idle mode, the system clock sources remain functional. The SPISIDL bit
+                      (SPIxSTAT<13>) determines whether the module stops in Idle mode or continues to operate in
+                      Idle mode.
+                      If SPISIDL = 1, the SPIx module stops communication on entering Idle mode. It operates in the
+                      same manner as it does in Sleep mode. If SPISID = 0 (default selection), the module continues
+                      operation in Idle mode.
+
+
+
+
+DS70005185A-page 36                                                                      2014 Microchip Technology Inc.
+                                   7.0        REGISTER MAP
+ 2014 Microchip Technology Inc.
+
+
+
+
+                                                                      A summary of the registers associated with the dsPIC33/PIC24 SPIx module is provided in Table 7-1.
+
+                                   Table 7-1:        SPIx Register Map
+                                                                                                                                                                                                                  All
+                                   SFR Name     Bit 15    Bit 14    Bit 13     Bit 12     Bit 11     Bit 10     Bit 9      Bit 8      Bit 7      Bit 6      Bit 5    Bit 4    Bit 3    Bit 2    Bit 1    Bit 0
+                                                                                                                                                                                                                 Resets
+
+                                   SPIxSTAT     SPIEN      —       SPISIDL       —          —      SPIBEC2 SPIBEC1 SPIBEC0           SRMPT     SPIROV      SRXMPT   SISEL2   SISEL1   SISEL0   SPITBF   SPIRBF   0000
+
+
+
+
+                                                                                                                                                                                                                          Serial Peripheral Interface (SPI) Module
+                                   SPIxCON1      —         —          —       DISSCK     DISSDO    MODE16       SMP        CKE       SSEN        CKP       MSTEN    SPRE2    SPRE1    SPRE0    PPRE1    PPRE0    0000
+                                   SPIxCON2 FRMEN        SPIFSD    FRMPOL/       —          —          —          —         —          —          —          —        —        —        —      FRMDLY/ SPIBEN    0000
+                                                                   SPIFPOL                                                                                                                      SPIFE
+                                   SPIxBUF                                                                     SPIx Transmit and Receive Buffer Register                                                         0000
+                                   Legend:    — = unimplemented, read as ‘0’. Reset values are shown in hexadecimal
+DS70005185A-page 37
+dsPIC33/PIC24 Family Reference Manual
+8.0     RELATED APPLICATION NOTES
+                      This section lists application notes that are related to this section of the manual. These
+                      application notes may not be written specifically for the dsPIC33/PIC24 device families, but the
+                      concepts are pertinent and could be used with modification and possible limitations. The current
+                      application notes related to the Serial Peripheral Interface (SPI) module are:
+
+
+                      Title                                                                       Application Note #
+                      Interfacing Microchip’s MCP41XXX and MCP42XXX Digital
+                      Potentiometers to a PIC® Microcontroller                                                 AN746
+                      Interfacing Microchip’s MCP3201 Analog-to-Digital Converter
+                      to the PIC® Microcontroller                                                              AN719
+
+                         Note:    Please visit the Microchip web site (www.microchip.com) for additional Application
+                                  Notes and code examples for the dsPIC33/PIC24 families of devices.
+
+
+
+
+DS70005185A-page 38                                                                     2014 Microchip Technology Inc.
+                       Serial Peripheral Interface (SPI) Module
+9.0      REVISION HISTORY
+                       Revision A (May 2014)
+                       This is the initial released version of this document.
+
+
+
+
+ 2014 Microchip Technology Inc.                                                DS70005185A-page 39
+dsPIC33/PIC24 Family Reference Manual
+NOTES:
+
+
+
+
+DS70005185A-page 40               2014 Microchip Technology Inc.
+Note the following details of the code protection feature on Microchip devices:
+•    Microchip products meet the specification contained in their particular Microchip Data Sheet.
+
+•    Microchip believes that its family of products is one of the most secure families of its kind on the market today, when used in the
+     intended manner and under normal conditions.
+
+•    There are dishonest and possibly illegal methods used to breach the code protection feature. All of these methods, to our
+     knowledge, require using the Microchip products in a manner outside the operating specifications contained in Microchip’s Data
+     Sheets. Most likely, the person doing so is engaged in theft of intellectual property.
+
+•    Microchip is willing to work with the customer who is concerned about the integrity of their code.
+
+•    Neither Microchip nor any other semiconductor manufacturer can guarantee the security of their code. Code protection does not
+     mean that we are guaranteeing the product as “unbreakable.”
+
+Code protection is constantly evolving. We at Microchip are committed to continuously improving the code protection features of our
+products. Attempts to break Microchip’s code protection feature may be a violation of the Digital Millennium Copyright Act. If such acts
+allow unauthorized access to your software or other copyrighted work, you may have a right to sue for relief under that Act.
+
+
+
+Information contained in this publication regarding device               Trademarks
+applications and the like is provided only for your convenience          The Microchip name and logo, the Microchip logo, dsPIC,
+and may be superseded by updates. It is your responsibility to
+                                                                         FlashFlex, KEELOQ, KEELOQ logo, MPLAB, PIC, PICmicro,
+ensure that your application meets with your specifications.
+                                                                         PICSTART, PIC32 logo, rfPIC, SST, SST Logo, SuperFlash
+MICROCHIP MAKES NO REPRESENTATIONS OR                                    and UNI/O are registered trademarks of Microchip Technology
+WARRANTIES OF ANY KIND WHETHER EXPRESS OR
+                                                                         Incorporated in the U.S.A. and other countries.
+IMPLIED, WRITTEN OR ORAL, STATUTORY OR
+OTHERWISE, RELATED TO THE INFORMATION,                                   FilterLab, Hampshire, HI-TECH C, Linear Active Thermistor,
+INCLUDING BUT NOT LIMITED TO ITS CONDITION,                              MTP, SEEVAL and The Embedded Control Solutions
+QUALITY, PERFORMANCE, MERCHANTABILITY OR                                 Company are registered trademarks of Microchip Technology
+FITNESS FOR PURPOSE. Microchip disclaims all liability                   Incorporated in the U.S.A.
+arising from this information and its use. Use of Microchip              Silicon Storage Technology is a registered trademark of
+devices in life support and/or safety applications is entirely at        Microchip Technology Inc. in other countries.
+the buyer’s risk, and the buyer agrees to defend, indemnify and
+                                                                         Analog-for-the-Digital Age, Application Maestro, BodyCom,
+hold harmless Microchip from any and all damages, claims,
+                                                                         chipKIT, chipKIT logo, CodeGuard, dsPICDEM,
+suits, or expenses resulting from such use. No licenses are
+                                                                         dsPICDEM.net, dsPICworks, dsSPEAK, ECAN,
+conveyed, implicitly or otherwise, under any Microchip
+                                                                         ECONOMONITOR, FanSense, HI-TIDE, In-Circuit Serial
+intellectual property rights.
+                                                                         Programming, ICSP, Mindi, MiWi, MPASM, MPF, MPLAB
+                                                                         Certified logo, MPLIB, MPLINK, mTouch, Omniscient Code
+                                                                         Generation, PICC, PICC-18, PICDEM, PICDEM.net, PICkit,
+                                                                         PICtail, REAL ICE, rfLAB, Select Mode, SQI, Serial Quad I/O,
+                                                                         Total Endurance, TSHARC, UniWinDriver, WiperLock, ZENA
+                                                                         and Z-Scale are trademarks of Microchip Technology
+                                                                         Incorporated in the U.S.A. and other countries.
+                                                                         SQTP is a service mark of Microchip Technology Incorporated
+                                                                         in the U.S.A.
+                                                                         GestIC and ULPP are registered trademarks of Microchip
+                                                                         Technology Germany II GmbH & Co. KG, a subsidiary of
+                                                                         Microchip Technology Inc., in other countries.
+                                                                         All other trademarks mentioned herein are property of their
+                                                                         respective companies.
+                                                                         © 2014, Microchip Technology Incorporated, Printed in the
+                                                                         U.S.A., All Rights Reserved.
+                                                                              Printed on recycled paper.
+                                                                         ISBN: 978-1-63276-240-5
+
+QUALITY MANAGEMENT SYSTEM                                                Microchip received ISO/TS-16949:2009 certification for its worldwide
+                                                                         headquarters, design and wafer fabrication facilities in Chandler and
+      CERTIFIED BY DNV                                                   Tempe, Arizona; Gresham, Oregon and design centers in California
+                                                                         and India. The Company’s quality system processes and procedures
+
+        == ISO/TS 16949 ==
+                                                                         are for its PIC® MCUs and dsPIC® DSCs, KEELOQ® code hopping
+                                                                         devices, Serial EEPROMs, microperipherals, nonvolatile memory and
+                                                                         analog products. In addition, Microchip’s quality system for the design
+                                                                         and manufacture of development systems is ISO 9001:2000 certified.
+
+
+
+ 2014 Microchip Technology Inc.                                                                                    DS70005185A-page 41
+                            Worldwide Sales and Service
+AMERICAS                    ASIA/PACIFIC                 ASIA/PACIFIC                  EUROPE
+Corporate Office            Asia Pacific Office          India - Bangalore             Austria - Wels
+2355 West Chandler Blvd.    Suites 3707-14, 37th Floor   Tel: 91-80-3090-4444          Tel: 43-7242-2244-39
+Chandler, AZ 85224-6199     Tower 6, The Gateway         Fax: 91-80-3090-4123          Fax: 43-7242-2244-393
+Tel: 480-792-7200           Harbour City, Kowloon                                      Denmark - Copenhagen
+                                                         India - New Delhi
+Fax: 480-792-7277           Hong Kong                                                  Tel: 45-4450-2828
+                                                         Tel: 91-11-4160-8631
+Technical Support:          Tel: 852-2943-5100                                         Fax: 45-4485-2829
+                                                         Fax: 91-11-4160-8632
+http://www.microchip.com/   Fax: 852-2401-3431
+                                                         India - Pune                  France - Paris
+support
+                            Australia - Sydney           Tel: 91-20-3019-1500          Tel: 33-1-69-53-63-20
+Web Address:
+                            Tel: 61-2-9868-6733                                        Fax: 33-1-69-30-90-79
+www.microchip.com                                        Japan - Osaka
+                            Fax: 61-2-9868-6755                                        Germany - Dusseldorf
+Atlanta                                                  Tel: 81-6-6152-7160
+                            China - Beijing                                            Tel: 49-2129-3766400
+Duluth, GA                                               Fax: 81-6-6152-9310
+                            Tel: 86-10-8569-7000                                       Germany - Munich
+Tel: 678-957-9614                                        Japan - Tokyo
+                            Fax: 86-10-8528-2104                                       Tel: 49-89-627-144-0
+Fax: 678-957-1455                                        Tel: 81-3-6880- 3770
+                            China - Chengdu                                            Fax: 49-89-627-144-44
+Austin, TX                                               Fax: 81-3-6880-3771
+                            Tel: 86-28-8665-5511                                       Germany - Pforzheim
+Tel: 512-257-3370                                        Korea - Daegu
+                            Fax: 86-28-8665-7889                                       Tel: 49-7231-424750
+Boston                                                   Tel: 82-53-744-4301
+Westborough, MA             China - Chongqing            Fax: 82-53-744-4302           Italy - Milan
+Tel: 774-760-0087           Tel: 86-23-8980-9588                                       Tel: 39-0331-742611
+                                                         Korea - Seoul
+Fax: 774-760-0088           Fax: 86-23-8980-9500                                       Fax: 39-0331-466781
+                                                         Tel: 82-2-554-7200
+Chicago                     China - Hangzhou             Fax: 82-2-558-5932 or         Italy - Venice
+Itasca, IL                  Tel: 86-571-8792-8115        82-2-558-5934                 Tel: 39-049-7625286
+Tel: 630-285-0071           Fax: 86-571-8792-8116                                      Netherlands - Drunen
+                                                         Malaysia - Kuala Lumpur
+Fax: 630-285-0075           China - Hong Kong SAR        Tel: 60-3-6201-9857           Tel: 31-416-690399
+Cleveland                   Tel: 852-2943-5100           Fax: 60-3-6201-9859           Fax: 31-416-690340
+Independence, OH            Fax: 852-2401-3431                                         Poland - Warsaw
+                                                         Malaysia - Penang
+Tel: 216-447-0464           China - Nanjing                                            Tel: 48-22-3325737
+                                                         Tel: 60-4-227-8870
+Fax: 216-447-0643           Tel: 86-25-8473-2460         Fax: 60-4-227-4068            Spain - Madrid
+Dallas                      Fax: 86-25-8473-2470                                       Tel: 34-91-708-08-90
+                                                         Philippines - Manila
+Addison, TX                 China - Qingdao                                            Fax: 34-91-708-08-91
+                                                         Tel: 63-2-634-9065
+Tel: 972-818-7423           Tel: 86-532-8502-7355        Fax: 63-2-634-9069            Sweden - Stockholm
+Fax: 972-818-2924
+                            Fax: 86-532-8502-7205                                      Tel: 46-8-5090-4654
+                                                         Singapore
+Detroit                     China - Shanghai             Tel: 65-6334-8870             UK - Wokingham
+Novi, MI                    Tel: 86-21-5407-5533         Fax: 65-6334-8850             Tel: 44-118-921-5800
+Tel: 248-848-4000           Fax: 86-21-5407-5066
+                                                         Taiwan - Hsin Chu             Fax: 44-118-921-5820
+Houston, TX
+                            China - Shenyang             Tel: 886-3-5778-366
+Tel: 281-894-5983
+                            Tel: 86-24-2334-2829         Fax: 886-3-5770-955
+Indianapolis                Fax: 86-24-2334-2393
+Noblesville, IN                                          Taiwan - Kaohsiung
+                            China - Shenzhen             Tel: 886-7-213-7830
+Tel: 317-773-8323
+                            Tel: 86-755-8864-2200
+Fax: 317-773-5453                                        Taiwan - Taipei
+                            Fax: 86-755-8203-1760        Tel: 886-2-2508-8600
+Los Angeles
+                            China - Wuhan                Fax: 886-2-2508-0102
+Mission Viejo, CA
+                            Tel: 86-27-5980-5300         Thailand - Bangkok
+Tel: 949-462-9523
+                            Fax: 86-27-5980-5118         Tel: 66-2-694-1351
+Fax: 949-462-9608
+                            China - Xian                 Fax: 66-2-694-1350
+New York, NY
+Tel: 631-435-6000           Tel: 86-29-8833-7252
+                            Fax: 86-29-8833-7256
+San Jose, CA
+Tel: 408-735-9110           China - Xiamen
+                            Tel: 86-592-2388138
+Canada - Toronto
+                            Fax: 86-592-2388130
+Tel: 905-673-0699
+Fax: 905-673-6509           China - Zhuhai
+                            Tel: 86-756-3210040
+                                                                                                        03/25/14
+                            Fax: 86-756-3210049
+
+
+
+DS70005185A-page 42                                                                 2014 Microchip Technology Inc.
+
